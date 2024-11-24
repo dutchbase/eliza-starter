@@ -6,21 +6,15 @@ import { AutoClientInterface } from "@ai16z/client-auto";
 import { TelegramClientInterface } from "@ai16z/client-telegram";
 import { TwitterClientInterface } from "@ai16z/client-twitter";
 import {
-  DbCacheAdapter,
   defaultCharacter,
-  FsCacheAdapter,
-  ICacheManager,
-  IDatabaseCacheAdapter,
   stringToUuid,
   AgentRuntime,
-  CacheManager,
   Character,
   IAgentRuntime,
   ModelProviderName,
   elizaLogger,
   settings,
   IDatabaseAdapter,
-  validateCharacterConfig,
 } from "@ai16z/eliza";
 import { bootstrapPlugin } from "@ai16z/plugin-bootstrap";
 import { solanaPlugin } from "@ai16z/plugin-solana";
@@ -219,7 +213,6 @@ export async function initializeClients(
 export function createAgent(
   character: Character,
   db: IDatabaseAdapter,
-  cache: ICacheManager,
   token: string
 ) {
   elizaLogger.success(
@@ -242,26 +235,12 @@ export function createAgent(
     actions: [],
     services: [],
     managers: [],
-    cacheManager: cache,
   });
-}
-
-function intializeFsCache(baseDir: string, character: Character) {
-  const cacheDir = path.resolve(baseDir, character.id, "cache");
-
-  const cache = new CacheManager(new FsCacheAdapter(cacheDir));
-  return cache;
-}
-
-function intializeDbCache(character: Character, db: IDatabaseCacheAdapter) {
-  const cache = new CacheManager(new DbCacheAdapter(db, character.id));
-  return cache;
 }
 
 async function startAgent(character: Character, directClient: DirectClient) {
   try {
     character.id ??= stringToUuid(character.name);
-    character.username ??= character.name;
 
     const token = getTokenForProvider(character.modelProvider, character);
     const dataDir = path.join(__dirname, "../data");
@@ -272,12 +251,7 @@ async function startAgent(character: Character, directClient: DirectClient) {
 
     const db = initializeDatabase(dataDir);
 
-    await db.init();
-
-    const cache = intializeDbCache(character, db);
-    const runtime = createAgent(character, db, cache, token);
-
-    await runtime.initialize();
+    const runtime = createAgent(character, db, token);
 
     const clients = await initializeClients(character, runtime);
 
